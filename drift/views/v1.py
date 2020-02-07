@@ -167,17 +167,13 @@ def comparison_report_get():
 
 @metrics.comparison_report_requests.time()
 @metrics.api_exceptions.count_exceptions()
-def comparison_report_post():
+def comparison_report_post(body):
     """
     small wrapper over comparison_report for POSTs
     """
-    system_ids = request.json["system_ids"]
-    baseline_ids = []
-    if "baseline_ids" in request.json:
-        baseline_ids = request.json["baseline_ids"]
-    historical_sys_profile_ids = []
-    if "historical_system_profile_ids" in request.json:
-        historical_sys_profile_ids = request.json["historical_system_profile_ids"]
+    system_ids = body["system_ids"]
+    baseline_ids = body.get("baseline_ids", [])
+    historical_sys_profile_ids = body.get("historical_system_profile_ids", [])
     auth_key = get_key_from_headers(request.headers)
 
     data_format = "json"

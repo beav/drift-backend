@@ -128,6 +128,21 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(fqdn_comparison["state"], "INCOMPLETE_DATA")
 
     @mock.patch("drift.views.v1.fetch_systems_with_profiles")
+    def test_comparison_report_api_post_success(self, mock_fetch_systems):
+        mock_fetch_systems.return_value = fixtures.FETCH_SYSTEMS_WITH_PROFILES_RESULT
+        data = {
+            "system_ids": [
+                "d6bba69a-25a8-11e9-81b8-c85b761454fa",
+                "11b3cbce-25a9-11e9-8457-c85b761454fa",
+            ]
+        }
+        response = self.client.post(
+            "api/drift/v1/comparison_report",
+            headers=fixtures.AUTH_HEADER, json=data
+        )
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch("drift.views.v1.fetch_systems_with_profiles")
     def test_comparison_report_api_csv(self, mock_fetch_systems):
         mock_fetch_systems.return_value = fixtures.FETCH_SYSTEMS_WITH_PROFILES_RESULT
         response = self.client.get(
@@ -150,6 +165,7 @@ class ApiTests(unittest.TestCase):
             ],
             reader.fieldnames,
         )
+
 
     @mock.patch("drift.views.v1.fetch_baselines")
     @mock.patch("drift.views.v1.fetch_systems_with_profiles")
