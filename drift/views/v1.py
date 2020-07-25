@@ -1,3 +1,4 @@
+import requests
 import csv
 import io
 
@@ -152,8 +153,16 @@ def comparison_report(
             get_event_counters(),
         )
 
+        # digested_facts
+        digested_facts = []
+        for swp in systems_with_profiles:
+            data = swp["system_profile"]
+            data["system_id"] = swp["id"]
+            data["display_name"] = swp["display_name"]
+            digested_facts += requests.post("http://192.168.1.142:9090/", json=data).json()
+
         comparisons = info_parser.build_comparisons(
-            systems_with_profiles, baseline_results, hsp_results, reference_id
+            systems_with_profiles, digested_facts, baseline_results, hsp_results, reference_id
         )
         metrics.systems_compared.observe(len(system_ids))
         if data_format == "csv":
