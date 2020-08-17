@@ -8,14 +8,14 @@ from kerlescan import profile_parser
 
 
 def build_comparisons(
-    systems_with_profiles, digested_facts, baselines, historical_sys_profiles, reference_id
+    digested_facts, baselines, historical_sys_profiles, reference_id
 ):
     """
     given a list of system profile dicts and fact namespace, return a dict of
     comparisons, along with a dict of system data
     """
     fact_comparisons = _select_applicable_info(
-        systems_with_profiles, digested_facts, baselines, historical_sys_profiles, reference_id
+        digested_facts, baselines, historical_sys_profiles, reference_id
     )
 
     # remove system metadata that we put into to the comparison earlier
@@ -32,17 +32,11 @@ def build_comparisons(
 
     # create metadata
     baseline_mappings = [_baseline_mapping(baseline) for baseline in baselines]
+
     historical_sys_profile_mappings = [
         _historical_sys_profile_mapping(historical_sys_profile)
         for historical_sys_profile in historical_sys_profiles
     ]
-    system_mappings = [
-        _system_mapping(system_with_profile)
-        for system_with_profile in systems_with_profiles
-    ]
-    sorted_system_mappings = sorted(
-        system_mappings, key=lambda system: system["display_name"]
-    )
 
     sorted_historical_sys_profile_mappings = sorted(
         historical_sys_profile_mappings,
@@ -52,7 +46,6 @@ def build_comparisons(
 
     return {
         "facts": sorted_comparisons,
-        "systems": sorted_system_mappings,
         "baselines": baseline_mappings,
         "historical_system_profiles": sorted_historical_sys_profile_mappings,
     }
@@ -114,9 +107,7 @@ def _group_comparisons(comparisons):
     return grouped_comparisons
 
 
-def _select_applicable_info(
-    systems_with_profiles, digested_facts, baselines, historical_sys_profiles, reference_id
-):
+def _select_applicable_info(digested_facts, baselines, historical_sys_profiles, reference_id):
     """
     Take a list of systems with profiles, and output a "pivoted" list of
     profile facts, where each fact key has a dict of systems and their values. This is
@@ -125,23 +116,16 @@ def _select_applicable_info(
     # create dicts of id + info
     parsed_system_profiles = []
 
-    #for system_with_profile in systems_with_profiles:
-    #    system_name = profile_parser.get_name(system_with_profile)
-    #    parsed_system_profile = profile_parser.parse_profile(
-    #        system_with_profile["system_profile"], system_name, current_app.logger
+    #for historical_sys_profile in historical_sys_profiles:
+    #    historical_sys_profile_name = historical_sys_profile["display_name"]
+    #    parsed_historical_sys_profile = profile_parser.parse_profile(
+    #        historical_sys_profile["system_profile"],
+    #        historical_sys_profile_name,
+    #        current_app.logger,
     #    )
-    #    parsed_system_profiles.append({**parsed_system_profile, "is_baseline": False})
-
-    for historical_sys_profile in historical_sys_profiles:
-        historical_sys_profile_name = historical_sys_profile["display_name"]
-        parsed_historical_sys_profile = profile_parser.parse_profile(
-            historical_sys_profile["system_profile"],
-            historical_sys_profile_name,
-            current_app.logger,
-        )
-        parsed_system_profiles.append(
-            {**parsed_historical_sys_profile, "is_baseline": False}
-        )
+    #    parsed_system_profiles.append(
+    #        {**parsed_historical_sys_profile, "is_baseline": False}
+    #    )
 
     # add baselines into parsed_system_profiles
     for baseline in baselines:
@@ -160,21 +144,19 @@ def _select_applicable_info(
     # find the set of all keys to iterate over
     # get names from digested_facts here
     all_keys = set()
-    #for parsed_system_profile in parsed_system_profiles:
-    #    all_keys = all_keys.union(set(parsed_system_profile.keys()))
+    systems_count = set()
     for parsed_fact in digested_facts:
         all_keys.add(parsed_fact["fact_name"])
+        systems_count.add(parsed_fact["parsed_values"]["id"])
 
     info_comparisons = [
-        _create_comparison(
-            parsed_system_profiles, digested_facts, key, reference_id, len(systems_with_profiles)
-        )
+        _create_comparison(digested_facts, key, reference_id, len(systems_count))
         for key in all_keys
     ]
     return info_comparisons
 
 
-def _create_comparison(systems, digested_facts, info_name, reference_id, system_count):
+def _create_comparison(digested_facts, info_name, reference_id, system_count):
     """
     Take an individual fact, search for it across all systems, and create a dict
     of each system's ID and fact value. Additionally, add a "state" field that
@@ -191,26 +173,14 @@ def _create_comparison(systems, digested_facts, info_name, reference_id, system_
     # TODO: this method is messy and could be refactored
     info_comparison = COMPARISON_DIFFERENT
 
-    system_id_values = [
-        {
-            "id": system[SYSTEM_ID_KEY],
-            "name": system["name"],
-            "value": system.get(info_name, "N/A") or "N/A",
-            "is_baseline": system["is_baseline"],
-        }
-        for system in systems
-    ]
-
-    def _find_fact_for_name(n, df):
+    def _find_facts_for_name(n, df):
+        parsed_values = []
         for f in df:
             if f["fact_name"] == n:
-                return f["parsed_values"]
+                parsed_values.append(f["parsed_values"])
+        return parsed_values
 
-    #system_id_values_d = [_find_fact_for_name(info_name, digested_facts)]
-    system_id_values = [_find_fact_for_name(info_name, digested_facts)]
-    # get from digested facts here
-    #print(f"system_id_values {info_name}: {system_id_values}")
-    #print(f"digested_facts_d {info_name}: {system_id_values_d}")
+    system_id_values = _find_facts_for_name(info_name, digested_facts)
 
     sorted_system_id_values = sorted(
         system_id_values, key=lambda system: system["name"]
@@ -296,7 +266,7 @@ def _is_no_rec_name(info_name):
         return True
 
 
-def _system_mapping(system):
+def system_mapping(system):
     """
     create a header mapping for one system
     """

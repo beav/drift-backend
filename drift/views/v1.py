@@ -155,15 +155,27 @@ def comparison_report(
 
         # digested_facts
         digested_facts = []
-        for swp in systems_with_profiles:
+        for swp in systems_with_profiles + hsp_results:
             data = swp["system_profile"]
             data["system_id"] = swp["id"]
             data["display_name"] = swp["display_name"]
-            digested_facts += requests.post("http://192.168.1.142:9090/", json=data).json()
+            digested_fact = requests.post("http://192.168.1.142:9090/", json=data).json()
+            digested_facts += digested_fact
 
+        print(f"digested facts: {digested_facts}")
         comparisons = info_parser.build_comparisons(
-            systems_with_profiles, digested_facts, baseline_results, hsp_results, reference_id
+           digested_facts, baseline_results, hsp_results, reference_id
         )
+
+        system_mappings = [
+            info_parser.system_mapping(system_with_profile)
+            for system_with_profile in systems_with_profiles
+        ]
+        sorted_system_mappings = sorted(
+            system_mappings, key=lambda system: system["display_name"]
+        )
+        comparisons["systems"] = sorted_system_mappings
+
         metrics.systems_compared.observe(len(system_ids))
         if data_format == "csv":
             output = make_response(_csvify(comparisons))
